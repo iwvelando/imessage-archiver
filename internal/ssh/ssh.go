@@ -8,10 +8,10 @@ import (
 
 // SSHConfig holds the configuration for SSH connections.
 type SSHConfig struct {
-	User         string
-	PrivateKey   string
-	RemoteHost   string
-	RemotePath   string
+	User       string
+	PrivateKey string
+	RemoteHost string
+	RemotePath string
 }
 
 // NewSSHConfig creates a new SSHConfig instance.
