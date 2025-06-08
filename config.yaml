@@ -1,0 +1,18 @@
+# iMessage Archiver Configuration
+
+# Remote server settings (REQUIRED)
+remote_user: "backup_user"
+ssh_private_key_path: "/Users/user/.ssh/backup_server_key"
+remote_host: "backup.example.com"
+remote_archive_path: "/backups/imessages"
+
+# Logging configuration
+logging_level: "info"  # Options: debug, info, warn, error
+
+# Local export settings (optional - defaults will be used if not specified)
+local_export_path: "/Users/user/Library/Application Support/iMessage Archive"
+export_format: "html"  # Options: txt, html
+copy_method: "full"  # Options: clone, basic, full, disabled
+
+# Archive behavior
+days_to_check: 35  # Number of days to check backwards for missed archives
