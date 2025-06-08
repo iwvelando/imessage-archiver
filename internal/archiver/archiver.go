@@ -181,37 +181,6 @@ func (a *Archiver) getRemoteArchiveStructure() (map[string]bool, error) {
 	return archives, nil
 }
 
-func (a *Archiver) checkRemoteArchiveExists(date time.Time) (bool, error) {
-	remoteDir := a.getRemoteArchivePath(date)
-
-	a.logger.Debug(fmt.Sprintf("Checking if remote archive exists: %s", remoteDir))
-
-	cmd := exec.Command("ssh",
-		"-i", a.config.SSHPrivateKeyPath,
-		"-o", "ConnectTimeout=30",
-		"-o", "ServerAliveInterval=60",
-		"-o", "ServerAliveCountMax=3",
-		fmt.Sprintf("%s@%s", a.config.RemoteUser, a.config.RemoteHost),
-		fmt.Sprintf("test -d %s && ls -la %s | grep -v '^total'", remoteDir, remoteDir),
-	)
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Directory doesn't exist or is empty
-		a.logger.Debug(fmt.Sprintf("Remote directory check output: %s", string(output)))
-		return false, nil
-	}
-
-	// Check if directory has content (not just empty)
-	outputStr := strings.TrimSpace(string(output))
-	if outputStr == "" {
-		return false, nil
-	}
-
-	a.logger.Debug(fmt.Sprintf("Remote directory exists with content: %s", remoteDir))
-	return true, nil
-}
-
 func (a *Archiver) processDateLocally(targetDate time.Time, localRootDir string) error {
 	dateStr := targetDate.Format("2006-01-02")
 	a.logger.Info(fmt.Sprintf("Archiving messages for date: %s", dateStr))
@@ -431,35 +400,6 @@ func (a *Archiver) isDirectoryEmpty(dir string) (bool, error) {
 	}
 
 	return isEmpty, nil
-}
-
-func (a *Archiver) getRemoteArchivePath(date time.Time) string {
-	year := date.Format("2006")
-	month := date.Format("01")
-	day := date.Format("02")
-
-	return filepath.Join(a.config.RemoteArchivePath, year, month, day)
-}
-
-func (a *Archiver) createRemoteDirectory(remoteDir string) error {
-	a.logger.Debug(fmt.Sprintf("Creating remote directory: %s", remoteDir))
-
-	cmd := exec.Command("ssh",
-		"-i", a.config.SSHPrivateKeyPath,
-		"-o", "ConnectTimeout=30",
-		"-o", "ServerAliveInterval=60",
-		"-o", "ServerAliveCountMax=3",
-		fmt.Sprintf("%s@%s", a.config.RemoteUser, a.config.RemoteHost),
-		fmt.Sprintf("mkdir -p %s", remoteDir),
-	)
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		a.logger.Debug(fmt.Sprintf("SSH mkdir output: %s", string(output)))
-		return fmt.Errorf("failed to create remote directory via SSH: %w", err)
-	}
-
-	return nil
 }
 
 func (a *Archiver) batchSyncToRemote(localRootDir string) error {
