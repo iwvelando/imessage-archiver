@@ -15,7 +15,6 @@ type Config struct {
 	RemoteHost        string `yaml:"remote_host"`
 	LoggingLevel      string `yaml:"logging_level"`
 	RemoteArchivePath string `yaml:"remote_archive_path"`
-	LocalExportPath   string `yaml:"local_export_path,omitempty"`
 	ExportFormat      string `yaml:"export_format,omitempty"`
 	CopyMethod        string `yaml:"copy_method,omitempty"`
 	DaysToCheck       int    `yaml:"days_to_check,omitempty"`
@@ -35,10 +34,6 @@ func Load(configPath string) (*Config, error) {
 	// Set defaults
 	if config.LoggingLevel == "" {
 		config.LoggingLevel = "info"
-	}
-	if config.LocalExportPath == "" {
-		homeDir, _ := os.UserHomeDir()
-		config.LocalExportPath = filepath.Join(homeDir, "Library", "Application Support", "iMessage Archive")
 	}
 	if config.ExportFormat == "" {
 		config.ExportFormat = "txt"

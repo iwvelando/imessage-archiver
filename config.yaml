@@ -10,7 +10,6 @@ remote_archive_path: "/backups/imessages"
 logging_level: "info"  # Options: debug, info, warn, error
 
 # Local export settings (optional - defaults will be used if not specified)
-local_export_path: "/Users/user/Library/Application Support/iMessage Archive"
 export_format: "html"  # Options: txt, html
 copy_method: "full"  # Options: clone, basic, full, disabled
 

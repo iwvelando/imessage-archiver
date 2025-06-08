@@ -31,6 +31,51 @@ echo_error() {
     exit 1
 }
 
+# Function to check and guide Full Disk Access setup
+check_full_disk_access() {
+    echo_info "Checking Full Disk Access requirements..."
+
+    # Find imessage-exporter binary
+    IMESSAGE_EXPORTER_PATH=$(which imessage-exporter 2>/dev/null)
+
+    if [ -z "$IMESSAGE_EXPORTER_PATH" ]; then
+        echo_warn "imessage-exporter not found in PATH."
+        echo_warn "Please install it first: brew install imessage-exporter"
+        echo_warn "Then re-run this script."
+        return 1
+    fi
+
+    echo_info "Found imessage-exporter at: $IMESSAGE_EXPORTER_PATH"
+
+    # Test database access (this will fail if no Full Disk Access)
+    TEST_CHAT_DB="$HOME/Library/Messages/chat.db"
+
+    if [ ! -f "$TEST_CHAT_DB" ]; then
+        echo_warn "iMessage database not found at $TEST_CHAT_DB"
+        echo_warn "This is normal if you haven't used iMessage on this Mac."
+    else
+        # Try to read the database
+        if ! sqlite3 "$TEST_CHAT_DB" "SELECT COUNT(*) FROM message LIMIT 1;" >/dev/null 2>&1; then
+            echo_warn "Cannot access iMessage database. This usually means Full Disk Access is not granted."
+            echo_warn ""
+            echo_warn "REQUIRED: Grant Full Disk Access to imessage-exporter"
+            echo_warn "1. Open System Settings > Privacy & Security > Full Disk Access"
+            echo_warn "2. Click the lock icon and authenticate"
+            echo_warn "3. Click the '+' button"
+            echo_warn "4. Navigate to: $IMESSAGE_EXPORTER_PATH"
+            echo_warn "5. Select 'imessage-exporter' and ensure it's enabled"
+            echo_warn "6. Restart this script after granting access"
+            echo_warn ""
+            echo_warn "Note: You may need to use Cmd+Shift+G to navigate to the path directly."
+            return 1
+        else
+            echo_info "✓ Full Disk Access appears to be working correctly"
+        fi
+    fi
+
+    return 0
+}
+
 # --- Pre-flight Checks ---
 echo_info "Starting iMessage Archiver macOS automation setup..."
 
@@ -49,7 +94,12 @@ if [ ! -f "$CONFIG_PATH" ]; then
 fi
 echo_info "Config path check complete (expected at $CONFIG_PATH)."
 
-# 3. Check if source plist file exists
+# 3. Check Full Disk Access requirements
+if ! check_full_disk_access; then
+    echo_error "Full Disk Access check failed. Please follow the instructions above and re-run this script."
+fi
+
+# 4. Check if source plist file exists
 if [ ! -f "$SOURCE_PLIST_PATH" ]; then
     echo_error "Source plist file '$SOURCE_PLIST_PATH' not found. Make sure this script is run from the project root directory where '$PLIST_NAME' is located."
 fi
@@ -107,6 +157,16 @@ fi
 echo_info "iMessage Archiver macOS automation has been installed and loaded."
 echo_info "It is scheduled to run daily at the time specified in $PLIST_NAME."
 echo_info "Output logs will be stored in $HOME/Library/Logs/"
+
+# --- Final reminders ---
+echo_info ""
+echo_info "IMPORTANT REMINDERS:"
+echo_info "• Full Disk Access is granted to: $IMESSAGE_EXPORTER_PATH"
+echo_info "• If you update imessage-exporter (e.g., brew upgrade), you may need to:"
+echo_info "  1. Re-grant Full Disk Access to the new binary"
+echo_info "  2. Restart the launch agent: launchctl unload && launchctl load $DEST_PLIST_PATH"
+echo_info "• Check logs at: $HOME/Library/Logs/com.imessagearchiver.*.log"
+echo_info "• For debugging, set logging_level: \"debug\" in your config.yaml"
 
 # --- Uninstallation Instructions ---
 echo_info ""

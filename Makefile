@@ -12,6 +12,12 @@ all: build
 .PHONY: build
 build: $(BUILD_DIR)/$(BINARY_NAME)
 
+# Force rebuild regardless of timestamps
+.PHONY: build-force
+build-force:
+	@mkdir -p $(BUILD_DIR)
+	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+
 $(BUILD_DIR)/$(BINARY_NAME): $(GO_FILES)
 	@mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
@@ -37,6 +43,13 @@ test-coverage:
 .PHONY: install
 install:
 	go install $(MAIN_PATH)
+
+# Install the binary to ~/bin (for macOS automation)
+.PHONY: install-local
+install-local: build
+	@mkdir -p ~/bin
+	cp $(BUILD_DIR)/$(BINARY_NAME) ~/bin/$(BINARY_NAME)
+	@echo "Binary installed to ~/bin/$(BINARY_NAME)"
 
 # Run the application with default config
 .PHONY: run
@@ -77,10 +90,12 @@ build-all: clean
 help:
 	@echo "Available targets:"
 	@echo "  build        - Build the binary"
+	@echo "  build-force  - Force rebuild regardless of timestamps"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  test         - Run tests"
 	@echo "  test-coverage- Run tests with coverage report"
 	@echo "  install      - Install binary to GOPATH/bin"
+	@echo "  install-local- Install binary to ~/bin (for macOS automation)"
 	@echo "  run          - Build and run with default config"
 	@echo "  run-config   - Build and run with custom config (use CONFIG=path)"
 	@echo "  fmt          - Format Go code"

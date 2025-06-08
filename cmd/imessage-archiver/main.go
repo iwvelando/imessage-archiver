@@ -47,6 +47,4 @@ func main() {
 		log.Error(fmt.Sprintf("Archiving process failed: %v", err))
 		os.Exit(1)
 	}
-
-	log.Info("iMessage Archiver completed successfully")
 }

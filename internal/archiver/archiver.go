@@ -271,10 +271,39 @@ func (a *Archiver) exportMessages(targetDate time.Time, exportDir string) error 
 		"--no-lazy",
 	)
 
-	output, err := cmd.CombinedOutput()
+	// Enhanced logging for debugging
+	a.logger.Debug(fmt.Sprintf("Running command: %s", cmd.String()))
+
+	output, err := cmd.CombinedOutput() // Capture both stdout and stderr
+
+	// Always log the output for debugging purposes, especially for launch agent issues
+	if len(output) > 0 {
+		a.logger.Debug(fmt.Sprintf("imessage-exporter output:\n%s", string(output)))
+	} else {
+		a.logger.Debug("imessage-exporter produced no output")
+	}
+
+	// Check for critical errors in the output even if command didn't return an error code
+	outputStr := string(output)
+	if strings.Contains(outputStr, "Unable to read from chat database") ||
+		strings.Contains(outputStr, "unable to open database file") ||
+		strings.Contains(outputStr, "Full Disk Access") {
+
+		// Provide context-appropriate error message
+		return fmt.Errorf("imessage-exporter failed due to insufficient permissions. "+
+			"Full Disk Access must be granted to the imessage-exporter binary. "+
+			"Go to System Settings > Privacy & Security > Full Disk Access and add the imessage-exporter binary. "+
+			"Original error: %s", strings.TrimSpace(outputStr))
+	}
+
+	if strings.Contains(outputStr, "Invalid configuration") {
+		return fmt.Errorf("imessage-exporter configuration error: %s", outputStr)
+	}
+
 	if err != nil {
-		a.logger.Debug(fmt.Sprintf("imessage-exporter output: %s", string(output)))
-		return fmt.Errorf("imessage-exporter failed: %w", err)
+		// Log the error along with any output that might have been produced
+		a.logger.Error(fmt.Sprintf("imessage-exporter command failed: %v", err))
+		return fmt.Errorf("imessage-exporter failed: %w. Output: %s", err, string(output))
 	}
 
 	a.logger.Debug("Message export completed successfully")
@@ -284,78 +313,121 @@ func (a *Archiver) exportMessages(targetDate time.Time, exportDir string) error 
 func (a *Archiver) isDirectoryEmpty(dir string) (bool, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return false, err
+		a.logger.Error(fmt.Sprintf("Error reading directory %s: %v", dir, err))
+		return false, fmt.Errorf("failed to read directory %s: %w", dir, err)
 	}
 
-	// If completely empty, it's empty
+	a.logger.Debug(fmt.Sprintf("Checking directory %s: found %d entries", dir, len(entries)))
+
 	if len(entries) == 0 {
+		a.logger.Debug(fmt.Sprintf("Directory %s is completely empty.", dir))
 		return true, nil
+	}
+
+	// Log all entries found for detailed debugging
+	for _, entry := range entries {
+		info, _ := entry.Info() // Best effort to get info
+		size := int64(0)
+		if info != nil {
+			size = info.Size()
+		}
+		if entry.IsDir() {
+			a.logger.Debug(fmt.Sprintf("Found directory in %s: %s", dir, entry.Name()))
+		} else {
+			a.logger.Debug(fmt.Sprintf("Found file in %s: %s (size: %d bytes)", dir, entry.Name(), size))
+		}
 	}
 
 	// Check if directory only contains "empty export" artifacts from imessage-exporter
 	// When there are no messages, imessage-exporter typically creates:
 	// - An empty "attachments" directory
-	// - An "orphaned.html" file (containing no actual messages)
+	// - An "orphaned.html" file (containing no actual messages, usually small)
 	hasOnlyEmptyArtifacts := true
-	hasAttachments := false
-	hasOrphaned := false
+	hasAttachmentsDir := false
+	hasOrphanedHTML := false
+	foundOtherContent := false
 
 	for _, entry := range entries {
-		switch entry.Name() {
+		entryName := entry.Name()
+		entryPath := filepath.Join(dir, entryName)
+
+		switch entryName {
 		case "attachments":
 			if entry.IsDir() {
+				hasAttachmentsDir = true
 				// Check if attachments directory is empty
-				attachmentsPath := filepath.Join(dir, "attachments")
-				attachmentEntries, err := os.ReadDir(attachmentsPath)
+				attachmentEntries, err := os.ReadDir(entryPath)
 				if err != nil {
-					a.logger.Debug(fmt.Sprintf("Error reading attachments directory: %v", err))
-					hasOnlyEmptyArtifacts = false
+					a.logger.Warn(fmt.Sprintf("Could not read attachments directory %s: %v", entryPath, err))
+					hasOnlyEmptyArtifacts = false // Can't confirm it's empty, assume not
 					break
 				}
 				if len(attachmentEntries) > 0 {
-					// Attachments directory has content, so this is not empty
+					a.logger.Debug(fmt.Sprintf("Attachments directory %s is not empty, contains %d items.", entryPath, len(attachmentEntries)))
 					hasOnlyEmptyArtifacts = false
-					break
+				} else {
+					a.logger.Debug(fmt.Sprintf("Attachments directory %s is empty.", entryPath))
 				}
-				hasAttachments = true
 			} else {
-				// attachments is not a directory, unexpected
-				hasOnlyEmptyArtifacts = false
-				break
+				a.logger.Debug(fmt.Sprintf("Found 'attachments' as a file, not a directory, in %s. Considering it as content.", dir))
+				hasOnlyEmptyArtifacts = false // 'attachments' is a file, not an empty dir
+				foundOtherContent = true
 			}
 		case "orphaned.html":
 			if !entry.IsDir() {
-				// Check if orphaned.html is small (indicating no real content)
-				orphanedPath := filepath.Join(dir, "orphaned.html")
-				info, err := os.Stat(orphanedPath)
+				hasOrphanedHTML = true
+				info, err := entry.Info()
 				if err != nil {
-					a.logger.Debug(fmt.Sprintf("Error stating orphaned.html: %v", err))
-					hasOnlyEmptyArtifacts = false
+					a.logger.Warn(fmt.Sprintf("Could not get info for orphaned.html in %s: %v", dir, err))
+					hasOnlyEmptyArtifacts = false // Can't confirm size, assume not empty
 					break
 				}
-				// If orphaned.html is larger than 10KB, assume it has real content
-				if info.Size() > 10240 {
+				a.logger.Debug(fmt.Sprintf("orphaned.html found in %s with size %d bytes.", dir, info.Size()))
+				if info.Size() > 1024 { // 1KB threshold for "empty" orphaned.html
+					a.logger.Debug(fmt.Sprintf("orphaned.html in %s is larger than 1KB, considering it as content.", dir))
 					hasOnlyEmptyArtifacts = false
-					break
 				}
-				hasOrphaned = true
 			} else {
-				// orphaned.html is a directory, unexpected
-				hasOnlyEmptyArtifacts = false
-				break
+				a.logger.Debug(fmt.Sprintf("Found 'orphaned.html' as a directory, not a file, in %s. Considering it as content.", dir))
+				hasOnlyEmptyArtifacts = false // 'orphaned.html' is a dir
+				foundOtherContent = true
 			}
 		default:
-			// Found other files/directories, so this is not just empty artifacts
+			// Any other file or non-empty directory means there's content
+			a.logger.Debug(fmt.Sprintf("Found other content in %s: %s. Directory is not empty.", dir, entryName))
 			hasOnlyEmptyArtifacts = false
-			break
+			foundOtherContent = true
+		}
+		if !hasOnlyEmptyArtifacts {
+			break // No need to check further if we already know it's not "empty artifacts only"
 		}
 	}
 
-	// Consider it empty if we only have the typical empty export artifacts
-	isEmpty := hasOnlyEmptyArtifacts && (hasAttachments || hasOrphaned)
+	isEmpty := false
+	if foundOtherContent {
+		isEmpty = false
+		a.logger.Debug(fmt.Sprintf("Directory %s contains other content, not considered empty.", dir))
+	} else if hasAttachmentsDir && hasOrphanedHTML && hasOnlyEmptyArtifacts {
+		isEmpty = true
+		a.logger.Debug(fmt.Sprintf("Directory %s contains only an empty attachments dir and a small orphaned.html. Considered empty.", dir))
+	} else if hasAttachmentsDir && !hasOrphanedHTML && hasOnlyEmptyArtifacts {
+		isEmpty = true
+		a.logger.Debug(fmt.Sprintf("Directory %s contains only an empty attachments dir. Considered empty.", dir))
+	} else if !hasAttachmentsDir && hasOrphanedHTML && hasOnlyEmptyArtifacts {
+		isEmpty = true
+		a.logger.Debug(fmt.Sprintf("Directory %s contains only a small orphaned.html. Considered empty.", dir))
+	} else if !hasAttachmentsDir && !hasOrphanedHTML && len(entries) > 0 && hasOnlyEmptyArtifacts {
+		isEmpty = true
+		a.logger.Debug(fmt.Sprintf("Directory %s has entries but only known empty artifacts (or logic implies such). Considered empty.", dir))
+	} else if len(entries) > 0 && !hasOnlyEmptyArtifacts {
+		isEmpty = false
+		a.logger.Debug(fmt.Sprintf("Directory %s has entries and some are not known empty artifacts. Not considered empty.", dir))
+	}
 
 	if isEmpty {
-		a.logger.Debug(fmt.Sprintf("Directory contains only empty export artifacts (attachments: %v, orphaned: %v)", hasAttachments, hasOrphaned))
+		a.logger.Info(fmt.Sprintf("Determined directory %s to be effectively empty.", dir))
+	} else {
+		a.logger.Info(fmt.Sprintf("Determined directory %s to contain actual message data.", dir))
 	}
 
 	return isEmpty, nil

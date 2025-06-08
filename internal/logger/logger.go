@@ -1,14 +1,15 @@
 package logger
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strings"
 )
 
 type Logger struct {
-	level LogLevel
+	level       LogLevel
+	infoLogger  *log.Logger // For DEBUG and INFO - goes to stdout
+	errorLogger *log.Logger // For WARN and ERROR - goes to stderr
 }
 
 type LogLevel int
@@ -22,7 +23,11 @@ const (
 
 func New(levelStr string) *Logger {
 	level := parseLogLevel(levelStr)
-	return &Logger{level: level}
+	return &Logger{
+		level:       level,
+		infoLogger:  log.New(os.Stdout, "", log.LstdFlags),
+		errorLogger: log.New(os.Stderr, "", log.LstdFlags),
+	}
 }
 
 func parseLogLevel(levelStr string) LogLevel {
@@ -42,25 +47,24 @@ func parseLogLevel(levelStr string) LogLevel {
 
 func (l *Logger) Debug(msg string) {
 	if l.level <= DEBUG {
-		log.Printf("[DEBUG] %s", msg)
+		l.infoLogger.Printf("[DEBUG] %s", msg)
 	}
 }
 
 func (l *Logger) Info(msg string) {
 	if l.level <= INFO {
-		log.Printf("[INFO] %s", msg)
+		l.infoLogger.Printf("[INFO] %s", msg)
 	}
 }
 
 func (l *Logger) Warn(msg string) {
 	if l.level <= WARN {
-		log.Printf("[WARN] %s", msg)
+		l.errorLogger.Printf("[WARN] %s", msg)
 	}
 }
 
 func (l *Logger) Error(msg string) {
 	if l.level <= ERROR {
-		log.Printf("[ERROR] %s", msg)
-		fmt.Fprintf(os.Stderr, "[ERROR] %s\n", msg)
+		l.errorLogger.Printf("[ERROR] %s", msg)
 	}
 }
