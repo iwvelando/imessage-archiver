@@ -18,6 +18,9 @@ type Config struct {
 	ExportFormat      string `yaml:"export_format,omitempty"`
 	CopyMethod        string `yaml:"copy_method,omitempty"`
 	DaysToCheck       int    `yaml:"days_to_check,omitempty"`
+
+	// Test database path (for unit tests)
+	TestDatabasePath string `yaml:"test_database_path,omitempty"`
 }
 
 func Load(configPath string) (*Config, error) {

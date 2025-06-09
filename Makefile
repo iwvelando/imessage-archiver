@@ -33,6 +33,20 @@ clean:
 test:
 	go test ./...
 
+# Generate test database
+.PHONY: generate-test-db
+generate-test-db:
+	@echo "Generating test chat.db for unit tests..."
+	@chmod +x scripts/testing/generate_test_db.sh
+	@scripts/testing/generate_test_db.sh
+
+# Clean test database
+.PHONY: clean-test-db
+clean-test-db:
+	@echo "Cleaning test database and schema..."
+	@rm -f internal/archiver/testdata/chat.db
+	@rm -f schema.sql
+
 # Run tests with coverage
 .PHONY: test-coverage
 test-coverage:
@@ -50,6 +64,25 @@ install-local: build
 	@mkdir -p ~/bin
 	cp $(BUILD_DIR)/$(BINARY_NAME) ~/bin/$(BINARY_NAME)
 	@echo "Binary installed to ~/bin/$(BINARY_NAME)"
+
+# Install macOS automation
+.PHONY: install-macos-automation
+install-macos-automation: install-local
+	@echo "Installing macOS automation..."
+	@chmod +x scripts/macos/install_automation.sh
+	@scripts/macos/install_automation.sh
+
+# Uninstall macOS automation
+.PHONY: uninstall-macos-automation
+uninstall-macos-automation:
+	@echo "Uninstalling macOS automation..."
+	@if [ -f "$$HOME/Library/LaunchAgents/com.imessagearchiver.plist" ]; then \
+		launchctl unload "$$HOME/Library/LaunchAgents/com.imessagearchiver.plist" 2>/dev/null || true; \
+		rm "$$HOME/Library/LaunchAgents/com.imessagearchiver.plist"; \
+		echo "Launch agent removed"; \
+	else \
+		echo "Launch agent not found"; \
+	fi
 
 # Run the application with default config
 .PHONY: run
@@ -93,9 +126,13 @@ help:
 	@echo "  build-force  - Force rebuild regardless of timestamps"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  test         - Run tests"
+	@echo "  generate-test-db - Generate test database for unit tests"
+	@echo "  clean-test-db - Clean test database and schema"
 	@echo "  test-coverage- Run tests with coverage report"
 	@echo "  install      - Install binary to GOPATH/bin"
 	@echo "  install-local- Install binary to ~/bin (for macOS automation)"
+	@echo "  install-macos-automation - Install macOS automation"
+	@echo "  uninstall-macos-automation - Uninstall macOS automation"
 	@echo "  run          - Build and run with default config"
 	@echo "  run-config   - Build and run with custom config (use CONFIG=path)"
 	@echo "  fmt          - Format Go code"

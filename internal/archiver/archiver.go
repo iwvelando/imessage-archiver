@@ -220,25 +220,28 @@ func (a *Archiver) processDateLocally(targetDate time.Time, localRootDir string)
 	return nil
 }
 
-func (a *Archiver) exportMessages(targetDate time.Time, exportDir string) error {
-	startDateStr := targetDate.Format("2006-01-02")
-	// End date is the next day to capture only the target date's messages
-	endDateStr := targetDate.AddDate(0, 0, 1).Format("2006-01-02")
+// exportMessages exports messages for a specific date using imessage-exporter
+func (a *Archiver) exportMessages(date time.Time, outputDir string) error {
+	startDate := date.Format("2006-01-02")
+	endDate := date.AddDate(0, 0, 1).Format("2006-01-02")
 
-	a.logger.Debug(fmt.Sprintf("Exporting messages from %s to %s (exclusive) to %s", startDateStr, endDateStr, exportDir))
+	a.logger.Debug(fmt.Sprintf("Exporting messages from %s to %s (exclusive) to %s", startDate, endDate, outputDir))
 
-	// Use config values for format and copy method
-	format := a.config.ExportFormat
-	copyMethod := a.config.CopyMethod
-
-	cmd := exec.Command("imessage-exporter",
-		"--format", format,
-		"--copy-method", copyMethod,
-		"--export-path", exportDir,
-		"--start-date", startDateStr,
-		"--end-date", endDateStr,
+	args := []string{
+		"--format", a.config.ExportFormat,
+		"--copy-method", a.config.CopyMethod,
+		"--export-path", outputDir,
+		"--start-date", startDate,
+		"--end-date", endDate,
 		"--no-lazy",
-	)
+	}
+
+	// Add custom database path if specified (for testing)
+	if a.config.TestDatabasePath != "" {
+		args = append([]string{"--db-path", a.config.TestDatabasePath}, args...)
+	}
+
+	cmd := exec.Command("imessage-exporter", args...)
 
 	// Enhanced logging for debugging
 	a.logger.Debug(fmt.Sprintf("Running command: %s", cmd.String()))

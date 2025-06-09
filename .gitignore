@@ -42,3 +42,6 @@ go.work.sum
 *-darwin-arm64
 *-linux-amd64
 *-windows-amd64.exe
+
+# Generated test database artifacts
+schema.sql

@@ -99,15 +99,17 @@ ssh -i ~/.ssh/backup_server_key your_backup_user@backup.example.com
 The project includes automated installation helpers for daily scheduling:
 
 ```bash
-# Install binary to standard location
-make install-local
+# Install binary and set up macOS automation in one command
+make install-macos-automation
 
-# Run the macOS automation installer
-chmod +x install_macos_automation.sh
-./install_macos_automation.sh
+# Or do it step by step:
+make install-local
+chmod +x scripts/macos/install_automation.sh
+./scripts/macos/install_automation.sh
 ```
 
 The installer will:
+- Install the binary to `~/bin/`
 - Customize the launchd plist template with your home directory
 - Install the plist to `~/Library/LaunchAgents/`
 - Load the agent to run daily at 4 PM
@@ -117,11 +119,25 @@ The installer will:
 If you prefer manual setup:
 ```bash
 # Copy and customize the plist file
-cp com.imessagearchiver.plist ~/Library/LaunchAgents/
+cp scripts/macos/com.imessagearchiver.plist ~/Library/LaunchAgents/
 # Edit the file to replace __HOME_DIR__ with your actual home directory
 
 # Load the launch agent
 launchctl load ~/Library/LaunchAgents/com.imessagearchiver.plist
+```
+
+#### Uninstallation
+
+```bash
+# Uninstall macOS automation
+make uninstall-macos-automation
+
+# Or manually
+launchctl unload ~/Library/LaunchAgents/com.imessagearchiver.plist
+rm ~/Library/LaunchAgents/com.imessagearchiver.plist
+rm ~/bin/imessage-archiver
+rm -r ~/.config/imessage-archiver
+rm ~/Library/Logs/com.imessagearchiver.*.log
 ```
 
 ### 6. Testing
@@ -308,14 +324,76 @@ launchctl unload ~/Library/LaunchAgents/com.imessagearchiver.plist
 launchctl load ~/Library/LaunchAgents/com.imessagearchiver.plist
 ```
 
-### Getting Help
+## Development
 
-If issues persist:
-1. Run with debug logging enabled
-2. Check all log files mentioned above
-3. Verify all permissions and file paths
-4. Test SSH connectivity manually
-5. Ensure `imessage-exporter` works independently
+### Testing
+
+This project includes comprehensive unit tests that use a test database instead of your real iMessage database for safety and reliability.
+
+#### Test Database
+
+The tests use a dedicated test database (`internal/archiver/testdata/chat.db`) that contains dummy data with the same schema as the real iMessage database. This ensures:
+
+- **Privacy**: Tests don't access your real messages
+- **Reliability**: Tests are deterministic and don't depend on your actual message history
+- **CI/CD Compatibility**: Tests work in environments without access to the real database
+
+#### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run tests with coverage
+make test-coverage
+```
+
+#### Regenerating the Test Database
+
+If the macOS iMessage database schema changes in future macOS updates, you can regenerate the test database:
+
+```bash
+# Generate a new test database with the current schema
+make generate-test-db
+
+# Clean the existing test database and schema
+make clean-test-db
+```
+
+The `generate-test-db` command:
+1. Exports the schema from your real iMessage database
+2. Creates a new test database with that schema
+3. Inserts dummy test data (2 messages on 2024-01-01)
+4. Verifies the test database works with `imessage-exporter`
+
+**Note**: You need Full Disk Access granted to your terminal/shell to read the real database schema.
+
+### Test Database Contents
+
+The test database contains:
+- 1 dummy contact: `+10005551234`
+- 1 chat conversation
+- 2 test messages on 2024-01-01 at 12:00 PM and 2:30 PM
+- Lorem ipsum text content
+
+### Development Workflow
+
+```bash
+# 1. Build the project
+make build
+
+# 2. Run tests (uses test database automatically)
+make test
+
+# 3. If schema changes, regenerate test database
+make generate-test-db
+
+# 4. Format code
+make fmt
+
+# 5. Run linting (if golangci-lint is installed)
+make lint
+```
 
 ## License
 
