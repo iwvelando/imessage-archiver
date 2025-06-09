@@ -37,11 +37,5 @@ go.work.sum
 /bin/
 *.exe
 
-# Cross-platform builds
-*-darwin-amd64
-*-darwin-arm64
-*-linux-amd64
-*-windows-amd64.exe
-
 # Generated test database artifacts
 schema.sql

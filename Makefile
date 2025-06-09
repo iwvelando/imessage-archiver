@@ -109,15 +109,6 @@ lint:
 tidy:
 	go mod tidy
 
-# Build for multiple platforms
-.PHONY: build-all
-build-all: clean
-	@mkdir -p $(BUILD_DIR)
-	GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
-	GOOS=darwin GOARCH=arm64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
-	GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
-	GOOS=windows GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
-
 # Help target
 .PHONY: help
 help:
@@ -138,5 +129,4 @@ help:
 	@echo "  fmt                            - Format Go code"
 	@echo "  lint                           - Lint Go code (requires golangci-lint)"
 	@echo "  tidy                           - Tidy Go modules"
-	@echo "  build-all                      - Build for multiple platforms"
 	@echo "  help                           - Show this help message"
