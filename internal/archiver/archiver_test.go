@@ -126,7 +126,11 @@ func TestArchiver_processDateLocally_EmptyExport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempRoot)
+	defer func() {
+		if err := os.RemoveAll(tempRoot); err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	cfg := &config.Config{
 		LoggingLevel:     "debug",
@@ -184,7 +188,11 @@ func TestArchiver_processDateLocally_DirectoryCreation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempRoot)
+	defer func() {
+		if err := os.RemoveAll(tempRoot); err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	cfg := &config.Config{
 		LoggingLevel:     "debug",
@@ -324,7 +332,11 @@ func TestArchiver_isDirectoryEmpty(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create temp directory: %v", err)
 			}
-			defer os.RemoveAll(tempDir)
+			defer func() {
+				if err := os.RemoveAll(tempDir); err != nil {
+					t.Logf("Failed to remove temp directory: %v", err)
+				}
+			}()
 
 			// Setup the test scenario
 			if err := tt.setup(tempDir); err != nil {
@@ -418,7 +430,11 @@ func TestArchiver_exportMessages_InvalidConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	targetDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 
@@ -454,7 +470,11 @@ func TestArchiver_exportMessages_WithValidDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	// Use the date from our test data (2024-01-01)
 	targetDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -512,7 +532,11 @@ func TestArchiver_TestDatabasePathExists(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create temp directory: %v", err)
 		}
-		defer os.RemoveAll(tempDir)
+		defer func() {
+			if err := os.RemoveAll(tempDir); err != nil {
+				t.Logf("Failed to remove temp directory: %v", err)
+			}
+		}()
 
 		targetDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 		err = archiver.exportMessages(targetDate, tempDir)
@@ -542,7 +566,11 @@ func TestArchiver_batchSyncToRemote_InvalidConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	// This should fail due to invalid SSH configuration
 	err = archiver.batchSyncToRemote(tempDir)
@@ -623,7 +651,11 @@ func TestArchiver_processDateLocally(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
 
@@ -658,7 +690,11 @@ func TestArchiver_exportMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
 
@@ -693,7 +729,11 @@ func TestArchiver_batchSyncToRemote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	t.Run("fails when rsync command fails", func(t *testing.T) {
 		err := archiver.batchSyncToRemote(tempDir)
