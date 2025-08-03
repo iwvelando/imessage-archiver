@@ -33,10 +33,15 @@ clean:
 test:
 	go test ./...
 
+# Run tests with database generation
+.PHONY: test-with-db
+test-with-db: generate-test-db test
+
 # Generate test database
 .PHONY: generate-test-db
 generate-test-db:
 	@echo "Generating test chat.db for unit tests..."
+	@mkdir -p internal/archiver/testdata
 	@chmod +x scripts/testing/generate_test_db.sh
 	@scripts/testing/generate_test_db.sh
 
@@ -117,8 +122,6 @@ help:
 	@echo "  build-force                    - Force rebuild regardless of timestamps"
 	@echo "  clean                          - Clean build artifacts"
 	@echo "  test                           - Run tests"
-	@echo "  generate-test-db               - Generate test database for unit tests"
-	@echo "  clean-test-db                  - Clean test database and schema"
 	@echo "  test-coverage                  - Run tests with coverage report"
 	@echo "  install                        - Install binary to GOPATH/bin"
 	@echo "  install-local                  - Install binary to ~/bin (for macOS automation)"

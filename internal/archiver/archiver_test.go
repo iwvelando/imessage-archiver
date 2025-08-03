@@ -3,6 +3,7 @@ package archiver
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,14 @@ func getTestDatabasePath() string {
 	projectRoot := filepath.Join(currentDir, "..", "..")
 	testDbPath := filepath.Join(projectRoot, "internal", "archiver", "testdata", "chat.db")
 	return testDbPath
+}
+
+// checkTestDatabaseExists checks if the test database exists and fails the test if it doesn't
+func checkTestDatabaseExists(t *testing.T) {
+	testDbPath := getTestDatabasePath()
+	if _, err := os.Stat(testDbPath); os.IsNotExist(err) {
+		t.Fatalf("Test database not found at %s. Run 'make generate-test-db' to create it.", testDbPath)
+	}
 }
 
 func TestNew(t *testing.T) {
@@ -43,6 +52,9 @@ func TestNew(t *testing.T) {
 }
 
 func TestArchiver_Run(t *testing.T) {
+	// Check that test database exists before running tests that need it
+	checkTestDatabaseExists(t)
+
 	cfg := &config.Config{
 		LoggingLevel:      "info",
 		RemoteUser:        "testuser",
@@ -106,6 +118,9 @@ func TestArchiver_findMissingArchives_Fallback(t *testing.T) {
 }
 
 func TestArchiver_processDateLocally_EmptyExport(t *testing.T) {
+	// Check that test database exists before running tests that need it
+	checkTestDatabaseExists(t)
+
 	// Create temporary directories
 	tempRoot, err := os.MkdirTemp("", "archiver-test-*")
 	if err != nil {
@@ -389,7 +404,6 @@ func TestArchiver_cleanup_NonexistentDirectory(t *testing.T) {
 	// If we reach here without panic, the test passes
 }
 
-// Mock tests for functions that depend on external tools
 func TestArchiver_exportMessages_InvalidConfig(t *testing.T) {
 	cfg := &config.Config{
 		LoggingLevel:     "debug",
@@ -420,6 +434,96 @@ func TestArchiver_exportMessages_InvalidConfig(t *testing.T) {
 		t.Logf("exportMessages failed as expected: %v", err)
 	} else {
 		t.Logf("exportMessages succeeded in test environment (imessage-exporter is available)")
+	}
+}
+
+func TestArchiver_exportMessages_WithValidDatabase(t *testing.T) {
+	// Check that test database exists
+	checkTestDatabaseExists(t)
+
+	cfg := &config.Config{
+		LoggingLevel:     "debug",
+		ExportFormat:     "txt",
+		CopyMethod:       "basic",
+		TestDatabasePath: getTestDatabasePath(),
+	}
+	log := logger.New("debug")
+	archiver := New(cfg, log)
+
+	tempDir, err := os.MkdirTemp("", "export-test-with-db-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Use the date from our test data (2024-01-01)
+	targetDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Test exportMessages function with valid database
+	err = archiver.exportMessages(targetDate, tempDir)
+
+	if err != nil {
+		// If it fails, make sure it's not due to database issues
+		if strings.Contains(err.Error(), "does not exist at the specified path") {
+			t.Fatalf("Database path issue even though checkTestDatabaseExists passed: %v", err)
+		}
+		t.Logf("exportMessages failed (possibly due to imessage-exporter not available): %v", err)
+	} else {
+		t.Logf("exportMessages succeeded with test database")
+
+		// Check if any output was created
+		entries, err := os.ReadDir(tempDir)
+		if err != nil {
+			t.Logf("Could not read output directory: %v", err)
+		} else {
+			t.Logf("Export created %d entries in output directory", len(entries))
+		}
+	}
+}
+
+func TestArchiver_TestDatabasePathExists(t *testing.T) {
+	// This test validates that our test database detection works correctly
+	testDbPath := getTestDatabasePath()
+	t.Logf("Test database path: %s", testDbPath)
+
+	// Check if the path contains the expected components
+	if !strings.Contains(testDbPath, "internal/archiver/testdata/chat.db") {
+		t.Errorf("Test database path doesn't contain expected components: %s", testDbPath)
+	}
+
+	if _, err := os.Stat(testDbPath); os.IsNotExist(err) {
+		t.Skipf("Test database not found at %s. Run 'make generate-test-db' to create it.", testDbPath)
+	} else {
+		t.Logf("Test database found at %s", testDbPath)
+
+		// Verify it's a valid SQLite database by attempting to open it
+		// This is a basic smoke test to ensure the file isn't corrupted
+		cfg := &config.Config{
+			LoggingLevel:     "debug",
+			ExportFormat:     "txt",
+			CopyMethod:       "basic",
+			TestDatabasePath: testDbPath,
+		}
+		log := logger.New("debug")
+		archiver := New(cfg, log)
+
+		// Try a basic export to verify the database works
+		tempDir, err := os.MkdirTemp("", "db-validation-*")
+		if err != nil {
+			t.Fatalf("Failed to create temp directory: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		targetDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+		err = archiver.exportMessages(targetDate, tempDir)
+
+		if err == nil {
+			t.Logf("Test database validation succeeded - imessage-exporter can read the database")
+		} else if strings.Contains(err.Error(), "does not exist at the specified path") {
+			t.Errorf("Test database file exists but imessage-exporter says it doesn't: %v", err)
+		} else {
+			t.Logf("Test database exists but export failed (possibly due to missing imessage-exporter): %v", err)
+		}
 	}
 }
 
@@ -563,7 +667,7 @@ func TestArchiver_exportMessages(t *testing.T) {
 
 		if err != nil {
 			// Verify error contains helpful information
-			if !contains(err.Error(), "imessage-exporter") {
+			if !strings.Contains(err.Error(), "imessage-exporter") {
 				t.Errorf("Expected error to mention imessage-exporter, got: %v", err)
 			}
 			t.Logf("exportMessages failed: %v", err)
@@ -599,18 +703,13 @@ func TestArchiver_batchSyncToRemote(t *testing.T) {
 	})
 }
 
-// Helper function for string slice contains check
-func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 &&
-		(s == substr || len(s) >= len(substr) &&
-			containsSubstring(s, substr))
-}
+// TestDatabaseRequired tests that fail when database is missing
+func TestDatabaseRequired(t *testing.T) {
+	// This test intentionally fails if the database doesn't exist
+	// It demonstrates the difference between tests that require the database
+	// vs tests that just log warnings
+	checkTestDatabaseExists(t)
 
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	// If we get here, the database exists
+	t.Logf("Database requirement check passed - database exists")
 }

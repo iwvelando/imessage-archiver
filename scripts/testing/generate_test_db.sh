@@ -7,13 +7,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 REAL_DB="$HOME/Library/Messages/chat.db"
 TEST_DIR="$PROJECT_ROOT/internal/archiver/testdata"
 TEST_DB="$TEST_DIR/chat.db"
 SCHEMA_FILE="$PROJECT_ROOT/schema.sql"
 
 echo "🔧 Generating test chat.db for unit tests..."
+echo "📍 Project root: $PROJECT_ROOT"
+echo "📍 Test directory: $TEST_DIR"
+echo "📍 Test database: $TEST_DB"
 
 # Check if real chat.db exists
 if [[ ! -f "$REAL_DB" ]]; then
