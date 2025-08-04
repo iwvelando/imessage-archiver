@@ -332,7 +332,11 @@ func TestArchiver_isDirectoryEmpty(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to create temp directory: %v", err)
 			}
-			defer os.RemoveAll(tempDir)
+			defer func() {
+				if err := os.RemoveAll(tempDir); err != nil {
+					t.Logf("Failed to remove temp directory: %v", err)
+				}
+			}()
 
 			// Setup the test scenario
 			if err := tt.setup(tempDir); err != nil {
@@ -748,9 +752,4 @@ func TestDatabaseRequired(t *testing.T) {
 
 	// If we get here, the database exists
 	t.Logf("Database requirement check passed - database exists")
-}
-
-// TestIntentionalFailure is designed to fail to test GitHub Actions
-func TestIntentionalFailure(t *testing.T) {
-	t.Fatal("This test is intentionally failing to test GitHub Actions workflow")
 }
