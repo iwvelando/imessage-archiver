@@ -1,0 +1,69 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Check formatting (feature branches only)
+      if: github.ref != 'refs/heads/main'
+      run: |
+        if [ -n "$(gofmt -l .)" ]; then
+          echo "The following files are not properly formatted:"
+          gofmt -l .
+          echo "Please run 'make fmt' to fix formatting issues."
+          exit 1
+        fi
+        
+    - name: Install golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+      
+    - name: Run tests and linting
+      run: |
+        make test
+        make lint
+      
+    - name: Upload coverage reports
+      if: success()
+      run: |
+        go test -coverprofile=coverage.out ./...
+        go tool cover -html=coverage.out -o coverage.html
+        
+    - name: Upload coverage to artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage.html
