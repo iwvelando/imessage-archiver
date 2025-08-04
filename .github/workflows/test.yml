@@ -48,9 +48,6 @@ jobs:
       with:
         version: latest
         args: --timeout=5m
-        
-    - name: Generate test database
-      run: make generate-test-db
       
     - name: Run tests and linting
       run: |
