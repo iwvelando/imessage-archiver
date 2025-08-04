@@ -2,7 +2,7 @@ package archiver
 
 import (
 	"fmt"
-"os"
+	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
